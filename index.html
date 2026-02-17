@@ -1,0 +1,116 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jon - Amazing AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #0d0d0d;
+            color: #ececec;
+        }
+        .chat-container {
+            max-width: 48rem; /* 768px */
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .glass-sidebar {
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(20px);
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .message-row {
+            padding: 1.5rem 1rem;
+            transition: background 0.2s ease;
+        }
+        .message-row:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+        
+        /* Assistant Avatar Animation */
+        @keyframes jon-pulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4); }
+            50% { transform: scale(1.05); box-shadow: 0 0 20px 5px rgba(99, 102, 241, 0.2); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4); }
+        }
+        .speaking-orb {
+            animation: jon-pulse 1.5s infinite ease-in-out;
+            background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+        }
+        
+        /* Facial Expressions */
+        @keyframes blink {
+            0%, 90%, 100% { height: 6px; }
+            95% { height: 1px; }
+        }
+        
+        @keyframes eyes-talk {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-2px); }
+        }
+
+        .eye {
+            width: 6px;
+            height: 6px;
+            background-color: white;
+            border-radius: 50%;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .eye-blink {
+            animation: blink 4s infinite;
+        }
+
+        .eye-talking {
+            animation: eyes-talk 0.2s infinite;
+        }
+
+        /* Expression States */
+        .expr-cool .eye { border-radius: 4px 4px 0 0; height: 3px; }
+        .expr-excited .eye { transform: scale(1.3); }
+        .expr-emotional .eye { transform: translateY(1px) scaleX(1.1); border-radius: 50% 50% 40% 40%; }
+        
+        /* ChatGPT-style morphing for Live Mode */
+        @keyframes morph {
+          0% { border-radius: 40% 60% 60% 40% / 40% 40% 60% 60%; }
+          33% { border-radius: 70% 30% 50% 50% / 30% 30% 70% 70%; }
+          66% { border-radius: 30% 70% 70% 30% / 50% 40% 30% 60%; }
+          100% { border-radius: 40% 60% 60% 40% / 40% 40% 60% 60%; }
+        }
+        .animate-morph {
+          animation: morph 8s ease-in-out infinite;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@^19.2.4",
+    "react/": "https://esm.sh/react@^19.2.4/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.41.0",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/"
+  }
+}
+</script>
+</head>
+<body class="overflow-hidden">
+    <div id="root"></div>
+</body>
+</html>

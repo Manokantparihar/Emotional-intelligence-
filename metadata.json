@@ -1,0 +1,7 @@
+{
+  "name": "Jon: The Emotional AI",
+  "description": "An amazing, super cool, and deeply emotional AI companion named Jon who brings passion and heart to every conversation.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
