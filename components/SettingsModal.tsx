@@ -1,7 +1,13 @@
 
 import React from 'react';
 import { JonConfig } from '../types';
-import { getBotName } from '../services/geminiService';
+
+const getBotName = (config: JonConfig) => {
+  if (config.language === 'Hindi') {
+    return config.voiceGender === 'male' ? 'Jon' : 'Jaya';
+  }
+  return config.voiceGender === 'male' ? 'Jon' : 'Joni';
+};
 
 interface SettingsModalProps {
   isOpen: boolean;

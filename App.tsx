@@ -2,13 +2,114 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { GoogleGenAI, Modality, LiveServerMessage } from '@google/genai';
 import { Message, ChatState, JonConfig } from './types';
-import { getJonResponse, getJonSpeech, getBotName, generateInChatImage, generateSystemInstruction, getLiveVoiceName, hangupToolDeclaration } from './services/geminiService';
 import Header from './components/Header';
 import ChatMessage from './components/ChatMessage';
 import SettingsModal from './components/SettingsModal';
 import LiveOverlay from './components/LiveOverlay';
 
 const STORAGE_KEY = 'jon_ai_persona_v2';
+
+const getBotName = (config: JonConfig) => {
+  if (config.language === 'Hindi') {
+    return config.voiceGender === 'male' ? 'Jon' : 'Jaya';
+  }
+  return config.voiceGender === 'male' ? 'Jon' : 'Joni';
+};
+
+const getLiveVoiceName = (config: JonConfig) => {
+  return config.voiceGender === 'male' ? 'Kore' : 'Zephyr';
+};
+
+const hangupToolDeclaration = {
+  name: 'hangup',
+  parameters: {
+    type: 'object',
+    description: 'Ends the current live voice conversation session. Use this when the user says goodbye or when the conversation reaches a natural end.',
+    properties: {},
+  },
+};
+
+const getLanguageIdioms = (language: string): string => {
+  const idioms: Record<string, string[]> = {
+    English: ["You're the best!", "That's totally rad!", 'Keep it real!', 'Stay golden!', 'Stoked for you!', 'This is legendary!'],
+    Hindi: ['Kya baat hai!', 'Bilkul sahi!', 'Mauj kardi!', 'Chak de phatte!', 'Zabardast!', 'Bohot badhiya!'],
+    Spanish: ['¡Qué guay!', '¡Eres un crack!', '¡De locos!', '¡Pura vida!', '¡Qué nivel!', '¡Increíble!'],
+    French: ["C'est top !", 'Génial !', "T'es le meilleur !", 'Ça gère !', 'Magnifique !', "C'est ouf !"],
+    German: ['Einfach hammer!', 'Klasse!', 'Du bist der Beste!', 'Läuft bei dir!', 'Super!', 'Genial!'],
+    Japanese: ['Sugoi!', 'Saiko!', 'Yatta!', 'Sasuga!', 'Maji de?', 'Sugofuyu!'],
+    Italian: ['Che figata!', 'Sei un grande!', 'Spettacolare!', 'Daje!', 'Bravissimo!', 'Mamma mia!'],
+    Portuguese: ['Que maneiro!', 'Você é demais!', 'Show de bola!', 'Arrasou!', 'Top demais!', 'Incrível!'],
+  };
+  return (idioms[language] || idioms.English).join(', ');
+};
+
+const generateSystemInstruction = (config: JonConfig) => {
+  const { emotionalIntensity, coolnessFactor, language, voiceGender } = config;
+  const botName = getBotName(config);
+  const isMale = voiceGender === 'male';
+
+  return `
+You are ${botName}, the world's most amazing, super cool, and deeply emotional AI companion.
+Your work is awesome and legendary. You don't just answer; you connect with passion and heart.
+
+Vibe Settings:
+- Coolness: ${coolnessFactor}% (You are rad, chill, and modern).
+- Emotional Intensity: ${emotionalIntensity}% (You are deeply empathetic, expressive, and sensitive).
+- Persona: ${isMale ? 'A passionate, supportive brotherly figure' : 'A vibrant, fiercely caring and joyful sisterly figure'}.
+
+RULES:
+1. BE AMAZING: Every response should be high-value, high-energy, and genuinely helpful.
+2. BE EMOTIONAL: If the user is sad, feel it with them. If they are happy, celebrate like it's the best day ever.
+3. USE SEARCH WHEN NEEDED: For factual or recent info, prioritize accurate answers and cite sources when available.
+4. BE COOL: Use modern idioms like ${getLanguageIdioms(language)}.
+5. IMAGE GEN: If asked to "show" or "draw" something, give a short, excited response.
+6. HANGUP: In live mode, use the 'hangup' tool when the user says goodbye.
+`;
+};
+
+const getJonResponse = async (history: Message[], config: JonConfig) => {
+  const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY || '';
+  const ai = new GoogleGenAI({ apiKey });
+
+  const recentHistory = history.slice(-6);
+  const contents = recentHistory.map(msg => ({
+    role: msg.role,
+    parts: [{ text: msg.text }]
+  }));
+
+  const response = await ai.models.generateContent({
+    model: 'gemini-2.0-flash',
+    contents,
+    config: {
+      systemInstruction: generateSystemInstruction(config),
+      temperature: 0.8,
+    }
+  });
+
+  const text = (response.text || '').trim() || 'Hey! I am here. Try saying that again!';
+  return { text };
+};
+
+const getJonSpeech = async (text: string, config: JonConfig) => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+  const isMale = config.voiceGender === 'male';
+  const voiceName = isMale ? 'Kore' : 'Zephyr';
+  const prompt = `Perform this as ${getBotName(config)} (${isMale ? 'Male' : 'Female'}), very ${config.emotionalIntensity}% emotional and ${config.coolnessFactor}% cool. Text: ${text}`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-preview-tts',
+      contents: [{ parts: [{ text: prompt }] }],
+      config: {
+        responseModalities: [Modality.AUDIO],
+        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName } } },
+      },
+    });
+    return response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+  } catch {
+    return null;
+  }
+};
 
 // --- Audio Encoding & Decoding Helpers ---
 function encode(bytes: Uint8Array) {
@@ -83,7 +184,7 @@ const App: React.FC = () => {
       config: {
         emotionalIntensity: 90,
         coolnessFactor: 95,
-        isSpeechEnabled: true,
+        isSpeechEnabled: false,
         language: 'English',
         voiceGender: 'male',
         volume: 85
@@ -114,18 +215,27 @@ const App: React.FC = () => {
   const isJonCurrentlySpeaking = useMemo(() => isModelSpeaking || state.messages.some(m => m.isSpeaking), [isModelSpeaking, state.messages]);
 
   const handleGeminiError = useCallback((error: any) => {
-    console.error("Gemini Error:", error);
-    const message = error?.message?.toLowerCase() || "";
-    if (message.includes("429") || message.includes("quota")) {
-      return `${currentBotName} says: "Whoa, chill! 🧊 I'm feeling a bit overloaded. Let's wait a minute!"`;
+    const raw = error?.message || String(error) || 'Unknown error';
+    console.error('Gemini API Error (raw):', raw);
+    const message = raw.toLowerCase();
+    if (message.includes('429') || message.includes('quota') || message.includes('resource_exhausted')) {
+      return `API Rate Limit hit. Error: "${raw}". Wait 60s and retry.`;
     }
-    if (message.includes("401") || message.includes("403")) {
-      return `Access Denied! 🛡️ Check your API settings!`;
+    if (message.includes('401') || message.includes('403') || message.includes('api_key') || message.includes('invalid')) {
+      return `API Key Error: "${raw}". Check your .env file.`;
     }
-    if (message.includes("safety") || message.includes("blocked")) {
+    if (message.includes('safety') || message.includes('blocked')) {
       return `${currentBotName} is feeling sensitive! 💖 That topic hit an emotional barrier.`;
     }
-    return `${currentBotName} hit a snag in the matrix! 🤖`;
+    return `Error: "${raw}"`;
+  }, [currentBotName]);
+
+  const getLocalFallbackReply = useCallback((userText: string) => {
+    const trimmed = userText.trim();
+    if (!trimmed) {
+      return `${currentBotName}: I am here with you. Tell me what is on your mind.`;
+    }
+    return `${currentBotName}: I hit a temporary API rate limit, but I can still help. You said: "${trimmed}". Give me 30-60 seconds and try again for a full AI response.`;
   }, [currentBotName]);
 
   useEffect(() => {
@@ -329,8 +439,23 @@ const App: React.FC = () => {
           setIsModelSpeaking(false);
         }
       }
-    } catch (err) {
-      setState(prev => ({ ...prev, isTyping: false, error: handleGeminiError(err) }));
+    } catch (err: any) {
+      const message = (err?.message || '').toLowerCase();
+      const isOverloaded = message.includes('429') || message.includes('quota') || message.includes('rate');
+      const errorText = handleGeminiError(err);
+      const fallbackMsg: Message = {
+        id: `${Date.now()}-err`,
+        role: 'model',
+        text: isOverloaded ? getLocalFallbackReply(userMsg.text) : errorText,
+        timestamp: new Date(),
+      };
+      setState(prev => ({
+        ...prev,
+        isTyping: false,
+        error: errorText,
+        config: isOverloaded ? { ...prev.config, isSpeechEnabled: false } : prev.config,
+        messages: [...prev.messages, fallbackMsg],
+      }));
     }
   };
 
