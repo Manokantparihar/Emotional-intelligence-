@@ -1,0 +1,5 @@
+[33m6159701[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Merge pull request #2 from Manokantparihar/codex/create-implementation-plan-for-ai-agent-system-8h5wdt
+[33mfd432b8[m[33m ([m[1;31morigin/codex/create-implementation-plan-for-ai-agent-system-8h5wdt[m[33m)[m Merge origin/main into feature branch, resolve conflicts in chat contracts and API
+[33m2c39958[m Wire backend orchestration runtime into /api/chat
+[33m72c70f7[m Merge pull request #1 from Manokantparihar/codex/create-implementation-plan-for-ai-agent-system
+[33mc09aa88[m[33m ([m[1;31morigin/codex/create-implementation-plan-for-ai-agent-system[m[33m)[m Phase 2.5 cleanup: add response meta, stricter chat schema, agnostic errors
