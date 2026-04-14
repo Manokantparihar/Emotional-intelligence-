@@ -6,6 +6,7 @@ import Header from './components/Header';
 import ChatMessage from './components/ChatMessage';
 import SettingsModal from './components/SettingsModal';
 import LiveOverlay from './components/LiveOverlay';
+import { requestChatCompletion } from './services/chatClient';
 
 const STORAGE_KEY = 'jon_ai_persona_v2';
 
@@ -65,29 +66,6 @@ RULES:
 5. IMAGE GEN: If asked to "show" or "draw" something, give a short, excited response.
 6. HANGUP: In live mode, use the 'hangup' tool when the user says goodbye.
 `;
-};
-
-const getJonResponse = async (history: Message[], config: JonConfig) => {
-  const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY || '';
-  const ai = new GoogleGenAI({ apiKey });
-
-  const recentHistory = history.slice(-6);
-  const contents = recentHistory.map(msg => ({
-    role: msg.role,
-    parts: [{ text: msg.text }]
-  }));
-
-  const response = await ai.models.generateContent({
-    model: 'gemini-2.0-flash',
-    contents,
-    config: {
-      systemInstruction: generateSystemInstruction(config),
-      temperature: 0.8,
-    }
-  });
-
-  const text = (response.text || '').trim() || 'Hey! I am here. Try saying that again!';
-  return { text };
 };
 
 const getJonSpeech = async (text: string, config: JonConfig) => {
@@ -214,28 +192,32 @@ const App: React.FC = () => {
   const currentBotName = useMemo(() => getBotName(state.config), [state.config]);
   const isJonCurrentlySpeaking = useMemo(() => isModelSpeaking || state.messages.some(m => m.isSpeaking), [isModelSpeaking, state.messages]);
 
-  const handleGeminiError = useCallback((error: any) => {
+  const handleChatError = useCallback((error: any) => {
     const raw = error?.message || String(error) || 'Unknown error';
-    console.error('Gemini API Error (raw):', raw);
+    console.error('Chat Error (raw):', raw);
     const message = raw.toLowerCase();
-    if (message.includes('429') || message.includes('quota') || message.includes('resource_exhausted')) {
-      return `API Rate Limit hit. Error: "${raw}". Wait 60s and retry.`;
+
+    if (message.includes('failed to fetch') || message.includes('network')) {
+      return 'Connection issue: unable to reach the chat service right now. Please try again.';
     }
-    if (message.includes('401') || message.includes('403') || message.includes('api_key') || message.includes('invalid')) {
-      return `API Key Error: "${raw}". Check your .env file.`;
+
+    if (message.includes('timeout')) {
+      return 'The chat service took too long to respond. Please try again.';
     }
-    if (message.includes('safety') || message.includes('blocked')) {
-      return `${currentBotName} is feeling sensitive! 💖 That topic hit an emotional barrier.`;
+
+    if (message.includes('429') || message.includes('rate') || message.includes('quota')) {
+      return 'The chat service is busy right now. Please wait a moment and retry.';
     }
-    return `Error: "${raw}"`;
-  }, [currentBotName]);
+
+    return `Chat service error: "${raw}"`;
+  }, []);
 
   const getLocalFallbackReply = useCallback((userText: string) => {
     const trimmed = userText.trim();
     if (!trimmed) {
       return `${currentBotName}: I am here with you. Tell me what is on your mind.`;
     }
-    return `${currentBotName}: I hit a temporary API rate limit, but I can still help. You said: "${trimmed}". Give me 30-60 seconds and try again for a full AI response.`;
+    return `${currentBotName}: I hit a temporary chat-service limit, but I can still help. You said: "${trimmed}". Give me 30-60 seconds and try again for a full AI response.`;
   }, [currentBotName]);
 
   useEffect(() => {
@@ -400,7 +382,7 @@ const App: React.FC = () => {
       liveSessionPromiseRef.current = sessionPromise;
     } catch (err) {
       console.error(err);
-      setState(prev => ({ ...prev, error: handleGeminiError(err) }));
+      setState(prev => ({ ...prev, error: handleChatError(err) }));
     }
   };
 
@@ -413,7 +395,15 @@ const App: React.FC = () => {
     setInput('');
 
     try {
-      const response = await getJonResponse([...state.messages, userMsg], state.config);
+      const response = await requestChatCompletion({
+        history: [...state.messages, userMsg].map((message) => ({ role: message.role, text: message.text })),
+        config: {
+          emotionalIntensity: state.config.emotionalIntensity,
+          coolnessFactor: state.config.coolnessFactor,
+          language: state.config.language,
+          voiceGender: state.config.voiceGender,
+        },
+      });
       const botMsgId = Date.now().toString();
       const botMsg: Message = { id: botMsgId, role: 'model', text: response.text, timestamp: new Date(), sources: response.sources };
       
@@ -442,7 +432,7 @@ const App: React.FC = () => {
     } catch (err: any) {
       const message = (err?.message || '').toLowerCase();
       const isOverloaded = message.includes('429') || message.includes('quota') || message.includes('rate');
-      const errorText = handleGeminiError(err);
+      const errorText = handleChatError(err);
       const fallbackMsg: Message = {
         id: `${Date.now()}-err`,
         role: 'model',
