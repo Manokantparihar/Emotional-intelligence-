@@ -22,15 +22,51 @@ export interface GroundingSource {
   uri: string;
 }
 
+export type EmotionLabel = 'calm' | 'anxious' | 'frustrated' | 'sad' | 'angry' | 'positive' | 'confused';
+
+export interface EmotionAnalysis {
+  label: EmotionLabel;
+  confidence: number;
+  escalationRisk: number;
+  rationale?: string;
+}
+
+export type EmpathyStyle =
+  | 'steady_reassurance'
+  | 'deescalation_support'
+  | 'warm_validation'
+  | 'encouraging_positive'
+  | 'clear_guidance';
+
+export type IntentLabel = 'faq' | 'support' | 'lead' | 'escalation' | 'chitchat';
+
+export interface IntentAnalysis {
+  label: IntentLabel;
+  confidence: number;
+  route: 'answer' | 'collect_lead' | 'escalate' | 'fallback';
+  rationale?: string;
+}
+
+export interface RoutingDecision {
+  route: 'answer' | 'collect_lead' | 'escalate' | 'fallback';
+  reason: string;
+}
+
+export interface PolicyDecision {
+  action: 'normal' | 'fallback' | 'escalation_required';
+  reason: string;
+  overrideText?: string;
+}
+
 export interface ChatResponseMeta {
-  emotion?: {
-    label: string;
-    confidence?: number;
+  emotion?: EmotionAnalysis;
+  empathy?: {
+    style: EmpathyStyle;
+    guidance: string;
   };
-  intent?: {
-    label: string;
-    confidence?: number;
-  };
+  intent?: IntentAnalysis;
+  routing?: RoutingDecision;
+  policy?: PolicyDecision;
   [key: string]: unknown;
 }
 
